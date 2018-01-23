@@ -1,0 +1,18 @@
+{
+    "blobs": [
+        {
+            "path": "fromblob.tgz"
+        }
+    ], 
+    "name": "filer", 
+    "specs": {
+        "default": {
+            "run_list": [
+                "recipe[cshared::directories]", 
+                "recipe[cuser]", 
+                "recipe[cshared::server]"
+            ]
+        }
+    }, 
+    "version": "1.0.0"
+}

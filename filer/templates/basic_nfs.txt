@@ -1,0 +1,90 @@
+################################
+## Basic NFS Template ##
+################################
+[parameters General Settings]
+Order = 10
+
+    [[parameters Cloud Service Provider Configuration]]
+    Description = Configure the Cloud Provider account options.
+    Order = 10
+
+        [[[parameter CloudProvider]]]
+        Label = Cloud Provider
+        ParameterType = Cloud.Provider
+	DefaultValue = azure
+	Hidden=true
+
+        [[[parameter Credentials]]]
+        Description = The credentials for the cloud provider
+        ParameterType = Cloud.Credentials
+
+        [[[parameter Region]]]
+        Label = Region
+        Description = Deployment Location
+        ParameterType = Cloud.Region
+	DefaultValue = westus2
+
+        [[[parameter keypairLocation]]]
+        Label = Keypair Path
+        Description = The path to the keypair
+        DefaultValue = ~/.ssh/cyclecloud.pem
+        Required = True
+
+        [[[parameter ImageName]]]
+        Label = Base OS
+        ParameterType = Cloud.Image
+        Config.OS = linux
+        DefaultValue = cycle.image.centos7
+
+        [[[parameter MachineType]]]
+        Label = NFS Machine Type
+        Description = The machine type for the NFS Server host
+        ParameterType = Cloud.MachineType
+	DefaultValue = Standard_L8s
+
+    [[parameters Azure Virtual Network Configuration]]
+    Order = 40
+
+        [[[parameter SubnetId]]]
+        Label = Subnet ID
+        Description = Subnet Resource Path (ResourceGroup/VirtualNetwork/Subnet)
+        ParameterType = Azure.Subnet
+
+
+[cluster basic_nfs]
+IconUrl = http://download.cyclecomputing.com/logos/nfs-192x192.png
+
+    [[node defaults]]
+
+    Credentials = $Credentials    
+
+    ImageName = $ImageName
+    SubnetId = $SubnetId
+    Region = $Region
+
+    KeyPairLocation = $keypairLocation
+
+	# Ensure consistent UID and GID between Filer and mounting clusters
+	[[[configuration]]]
+	cyclecloud.cluster.user.uid = 56696
+	cyclecloud.cluster.user.gid = 56696    
+
+    ## The standalone Shared Filer
+    [[node filer]]
+    MachineType = $MachineType
+    IsReturnProxy = true
+    
+	[[[configuration]]]
+	run_list = recipe[cganglia::server], recipe[cganglia::client], recipe[cshared::directories], recipe[cuser], recipe[cshared::server]
+	
+	cyclecloud.discoverable = true
+	role = sharedfs
+
+	[[[configuration cyclecloud.mounts.ephemeral]]]
+	size = 100%
+	fs_type = xfs
+
+      
+        [[[input-endpoint SSH]]]
+        LocalPort = 22
+        ExternalPort = 22
