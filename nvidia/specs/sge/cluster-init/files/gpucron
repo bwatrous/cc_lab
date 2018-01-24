@@ -1,0 +1,4 @@
+# Run this until GPU attributes are updated on the host
+SHELL=/bin/bash
+* * * * * root /etc/sge/modify_gpu_count.cron.sh >> /opt/cycle/jetpack/system/bootstrap/gpucron.log 2>&1
+

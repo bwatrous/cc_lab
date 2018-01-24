@@ -1,0 +1,232 @@
+#################################################
+## NVidia Gromacs Benchmark Configuration File ##
+#################################################
+
+[parameters General Settings]
+Order = 10
+
+    [[parameters Cloud Service Provider Configuration]]
+    Description = Configure the Cloud Provider account options.
+    Order = 10
+
+        [[[parameter CloudProvider]]]
+        Label = Cloud Provider
+        ParameterType = Cloud.Provider
+	DefaultValue = azure
+	Hidden = true
+
+        [[[parameter Credentials]]]
+        Description = The credentials for the cloud provider
+        ParameterType = Cloud.Credentials
+
+        [[[parameter Region]]]
+        Label = Region
+        Description = Deployment Location
+        ParameterType = Cloud.Region
+	DefaultValue = westus2
+
+    [[parameters Filesystem Configuration]]
+    Description = "Configure the Filesystem options."
+    Order = 20
+
+	[[[parameter FileSystemClusterName]]]
+	Label = NFS Cluster
+	Description = The filesystem to mount
+	Config.Plugin = pico.form.QueryDropdown
+	Config.Query = select ClusterName as Name from Cloud.Node join Cloud.Cluster CC on ClusterName === CC.ClusterName where CC.IsTemplate =!= True && Configuration.role=?="sharedfs"
+	Config.SetDefault = false
+	Config.Required = true
+	
+	[[[parameter MountPoint]]]
+	Label = Mount Point
+	Description = The path at which to mount the Filesystem
+	DefaultValue = /nfs
+
+
+[parameters Cluster Software]
+Order = 20
+    
+    [[parameters Node Access]]
+    Description = "Specify the credentials required for access to the node.  The Keypair Path specifies the path on local machines for cyclecloud CLI access."
+    Order = 20
+
+        [[[parameter keypairLocation]]]
+        Label = Keypair Path
+        Description = The path to the keypair
+        DefaultValue = ~/.ssh/cyclecloud.pem
+        Required = True
+
+[parameters Compute Backend]
+Order = 30
+
+    [[parameter ClusterUserName]]
+    Label = Default User
+    DefaultValue = gromacs
+    Hidden = true
+    
+    [[parameter ClusterUserPubKey]]
+    Label = Default User Pub. Key
+    Hidden = true
+
+    [[parameters Instance Types]]
+    Description = "The cluster, in this case, has two roles: the scheduler master-node with shared filer and the execute hosts. Configure which instance types to use based on the requirements of your application."
+    Order = 10
+
+        [[[parameter MachineType]]]
+        Label = Execute Type
+        Description = The machine type for all nodes
+        Config.Plugin = pico.form.QueryDropdown
+        Config.Query := "select Name as Label, [Name=Name; GPUCount=GPUCount] as Value from Cloud.MachineType where GPU == True && Provider == ${CloudProvider}"
+        Config.Parameters := { "CloudProvider" }
+        Config.SetDefault = true
+        Config.Required = true
+
+
+    [[parameters Auto-Scaling]]
+    Description = "The cluster can autoscale to the workload, adding execute hosts as jobs are queued. To enable this check the box below and choose the initial and maximum core counts for the cluster"
+    Order = 20
+
+        [[[parameter Autoscale]]]
+        Label = Autoscale
+        DefaultValue = true
+        Widget.Plugin = pico.form.BooleanCheckBox
+        Widget.Label = Start and stop execute instances automatically
+
+        [[[parameter InitialExecuteCoreCount]]]
+        Label = Initial Cores
+        Description = The number of execute cores to launch on startup
+        DefaultValue = 0
+        Config.Plugin = pico.form.NumberTextBox
+        Config.MinValue = 0
+        Config.MaxValue = 5000
+        Config.IntegerOnly = true
+
+        [[[parameter MaxExecuteCoreCount]]]
+        Label = Max Cores
+        Description = The total number of execute cores to start
+        DefaultValue = 24
+        Config.Plugin = pico.form.NumberTextBox
+        Config.MinValue = 1
+        Config.MaxValue = 5000
+        Config.IntegerOnly = true
+
+
+[parameters Networking]
+Order = 40
+    
+    [[parameters General]]
+    Order = 10
+
+        [[[parameter ReturnProxy]]]
+        Label = Return Proxy
+        DefaultValue = true
+        Widget.Plugin = pico.form.BooleanCheckBox
+        Widget.Label = Allow cloud instances to report back their state
+
+    
+    [[parameters Azure Virtual Network Configuration]]
+    Order = 40
+
+        [[[parameter SubnetId]]]
+        Label = Subnet ID
+        Description = Subnet Resource Path (ResourceGroup/VirtualNetwork/Subnet)
+        ParameterType = Azure.Subnet
+
+[cluster Gromacs]
+FormLayout = selectionpanel
+IconUrl = http://download.cyclecomputing.com/logos/gromacs-192x192.png
+
+# Enable/disable autoscaling
+# The scheduler load will determine the number of execute machines that are started,
+# machines will terminate themselves if they are idle and approaching a billing cycle.
+Autoscale = $Autoscale
+
+    # defines default values used for all nodes. This is inherited automatically by all nodes.
+    # You can create other nodes like this by adding Abstract = true to them and adding
+    # Extends = foo to the nodes that should inherit the definitions from foo.
+    [[node defaults]]
+    Credentials = $Credentials    
+
+    MachineType = ${MachineType.Name}
+    ImageName = cycle.image.ubuntu16
+    SubnetId = $SubnetId
+    Region = $Region
+
+    KeyPairLocation = $keypairLocation
+
+        [[[configuration]]]
+        # You can specify Chef attributes using dot notation if needed. For example, you
+        # can use it to change the default CycleServer admin password (defaults to cluster name):
+        cyclecloud.cluster.user.name = $ClusterUserName
+        cyclecloud.cluster.user.uid = 55555
+        cyclecloud.cluster.user.gid = 55555
+        cyclecloud.cluster.user.public_key = $ClusterUserPubKey
+
+        gromacs.mpi_enabled = true
+
+        [[[configuration nvidia]]]
+	# Currently, 384.111 is currently the latest version supported with the Meltdown patches
+	# - Since we're overriding the driver version, don't install the driver from the CUDA package
+        driver.build = 384.111
+        cuda.install_driver = false
+        cuda.version = 8.0
+        cuda.build = 8.0.61_375.26_linux
+        cudnn.version = 6.0
+
+        [[[configuration cyclecloud.mounts.nfs]]]
+        type = nfs
+        export_path = /mnt/exports/nfs
+        mountpoint = $MountPoint
+        cluster_name = $FilesystemClusterName
+
+        [[[cluster-init nvidia:driver:1.1.0]]]
+
+
+    [[node master]]
+    IsReturnProxy = $ReturnProxy
+
+
+        [[[configuration nvidia]]]
+        # IMPORTANT: cuda profile generation is for driver-only nodes (it will fail on the cuda host)
+        cuda.disable_profile = true
+
+
+        # Configure Azure external input endpoints (for example SSH)
+        [[[input-endpoint SSH]]]
+        PrivatePort = 22
+        PublicPort = 22
+
+        [[[input-endpoint ganglia]]]
+        PrivatePort = 8652
+        PublicPort = 8652        
+
+        [[[cluster-init nvidia:cuda:1.1.0]]]
+        [[[cluster-init nvidia:sge:1.1.0]]]
+        [[[cluster-init gromacs:default:1.0.0]]]
+        [[[cluster-init gromacs:master:1.0.0]]]
+
+
+    [[nodearray execute]]
+
+    # The initial number of cores of this type to start when the cluster starts
+    InitialCoreCount= $InitialExecuteCoreCount
+
+    # The maximum number of cores to start when the cluster is configured for autoscaling
+    MaxCoreCount = $MaxExecuteCoreCount
+
+    CoreCount = ${MachineType.GPUCount}
+
+        # OPTIONAL: cluster will also use a Consumable Resource to ensure that only GPUCount gpu jobs
+        #           run per node.   Without this setting, regular CPU jobs will be allowed to fill the
+        #           node's remaining CPUs.  With this setting, the node will ONLY be used for GPU jobs.
+        gridengine.slots = ${MachineType.GPUCount}
+
+        [[[input-endpoint SSH]]]
+        PrivatePort = 22
+        PublicPort = 55100
+
+        [[[cluster-init nvidia:sge:1.1.0]]]
+        [[[cluster-init gromacs:default:1.0.0]]]
+        [[[cluster-init gromacs:execute:1.0.0]]]
+
+

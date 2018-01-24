@@ -1,0 +1,25 @@
+#!/bin/bash
+#$ -cwd
+#$ -j y
+#$ -l affinity_group=default
+
+cat "$TMPDIR/machines"
+cat "$PE_HOSTFILE"
+
+for i in `seq 1 $PPN`;
+do
+  uniq $TMPDIR/machines >> $TMPDIR/u_machines
+done
+
+# Source the GROMACS environment
+. /opt/gromacs-5.1.4/bin/GMXRC
+
+# Required if using Intel MPI
+export I_MPI_DYNAMIC_CONNECTION=0
+export I_MPI_DEBUG=3
+export I_MPI_FABRICS=shm:dapl
+export I_MPI_DAPL_PROVIDER=ofa-v2-ib0
+
+
+time mpirun -machinefile "$TMPDIR/u_machines" gmx_mpi mdrun
+

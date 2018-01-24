@@ -119,5 +119,9 @@ IconUrl = http://download.cyclecomputing.com/logos/nfs-192x192.png
         [[[input-endpoint SSH]]]
         LocalPort = 22
         ExternalPort = 22
+	
+        [[[input-endpoint ganglia]]]
+        PrivatePort = 8652
+        PublicPort = 8652        
 
 	[[[cluster-init filer:default:1.0.0]]]

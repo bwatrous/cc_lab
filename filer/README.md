@@ -20,9 +20,6 @@ The Lab should take approx 30-60 minutes to complete.
 
 We welcome any thoughts or feedback. We are always looking for ways to improve the experience of learning how to use CycleCloud!
 
-### 1.2  CycleCloud Cluster Templates
-### 1.3  CycleCloud Projects
-
 
 ## 2. Prerequisites
 This lab has a few prerequisites to ensure you ready and able to perform the instructions. 
@@ -104,6 +101,22 @@ The NFS filer node requires additional software configuration after launch:
 Finally, the node template provides an `[[[input-endpoint SSH]]]` block that instructs cyclecloud to make port 22 on the node publicly reachable in Azure.
 
 
+### Uploading the project files into the storage account:
+
+Note the name of the storage locker, in the example below it is `azure-storage`:
+```
+$  cyclecloud locker list
+azure-storage (az://cyclecloudapp/cyclecloud)
+```
+
+From the directory where the `project.ini` file exists (the root of the git repo), upload the project:
+```
+$ cyclecloud project upload azure-storage
+Uploading to az://cyclecloudapp/cyclecloud/projects/filer/1.0.0 (100%)
+Sync completed!
+```
+
+
 #### Importing a Cluster Template
 
 The first step when creating a new Cluster Template in CycleCloud is, generally, to use the CycleCloud CLI to import the cluster template and generate the cluster creation form.
@@ -140,8 +153,12 @@ The easiest way to connect the node is to use the CLI (if the Cyclecloud CLI is 
 
     cyclecloud connect -c <your_cluster_name> filer
 
+To see the default exports:
 
-### 4.2 NFS with Persistent Storage
+    showmount -e
+
+
+### 4.2 How can we create an NFS with Persistent Storage?
 
 The `large_nfs.txt` template in the `filer/templates` directory expands upon the `basic_nfs.txt` template by adding additional, persistent, high-performance storage and replacing the default exports with a cluster-specific export path to be mounted by NFS clients.
 
@@ -179,16 +196,81 @@ This path may be mounted by other nodes in other clusters using:
 
 #### Creating a Cluster using the CLI and a Parameters File
 
-Using the UI is a good way to 
+Using the UI is a good way to create one-off clusters for test and development or to provide users with the ability to create personal clusters.  Once an application moves to QA/Test however, it is generally useful to have a static cluster definition.
+
+The Cyclecloud CLI allows users to "export" the parameters configured via the UI to a JSON format text file.   The exported parameters file can then be committed to source control alongside to the cluster project to track changes.   Copies of the parameters file can then be used to configure multiple environments (for example: Dev / Test / Prod clusters or copies of the cluster in multiple Regions).
+
+We'll demonstrate this by loading the next cluster template directly from the CLI using the parameters exported from the "large_nfs" cluster.
+
 
 ##### Exporting Cluster Parameters
 
+To export the cluster parameters, run:
 
+    cyclecloud export_parameters <your_large_nfs_cluster_name> > ./nfs_cluster_params.json
+    cat ./nfs_cluster_params.json
 
 
 ### 4.3 Building a Reusable CycleCloud Project
 
-The final `nfs.txt` template in the `filer/templates` directory.
+The final `nfs.txt` template in the `filer/templates` directory.   This version of the cluster template simply converts the NFS cluster to a project which would allow re-use in other clusters which need a standalone NFS server node built-in and disables the unused default exports.
 
 #### CycleCloud Project Overview
 
+CycleCloud Projects provide framework for building and deploying cluster types, applications, and cluster software capabilities that may be added to nodes in any cluster.   For example, a CycleCloud project might install the Anaconda python package manager from Continuum and then CycleCloud clusters can include the Anaconda Project to add the Anaconda capability to the cluster.
+
+The CycleCloud CLI provides a number of commands related to creating and deploying projects.  Run `cyclecloud project -h` now to see the options.
+
+Next, we will use the `cyclecloud project upload <locker_name>` command to upload the filer project to your Azure storage locker and then launch the final version of the filer cluster using template : `templates/nfs.txt`.
+
+
+#### Configuring POGO CLI
+
+Pogo is a data transfer CLI. Instructions for setting it up is described in the [pogo docs](https://docs.cyclecomputing.com/administrator-guide-v6.6.0/pogo/pogo_config).  For this lab, you do not need the Pogo binary, however the CycleCloud CLI uses pogo internally to upload CycleCloud projects, so you _do_ need to create a pogo configuration.
+
+Here's a quicker way of creating a pogo config for the blob storage account configured when you set up your Azure subscription in CycleCloud.
+
+1. Fetch the storage account (or "locker") that is associated with the azure account:
+
+```
+$  cyclecloud locker list
+azure-storage (az://cyclecloudapp/cyclecloud)
+```
+
+2. Edit the cyclecloud config file `~/.cycle/config.ini`, which was created by the `cyclecloud initialize` commmand.
+
+Add the following section in `~/.cycle/config.ini`, replacing the subscription_id, tenant_id, application_id and application_secret with your Azure AD Service Principal.
+
+The application_secret is your SP password.
+
+Replace `az://cyclecloudapp/cyclecloud` with your locker URI.
+
+```
+[pogo azure-storage]
+type = az
+subscription_id = XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+tenant_id = XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+application_id = XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+application_secret = XXXXXXXXXX
+matches=az://cyclecloudapp/cyclecloud
+```
+
+#### Deploying the Filer Project
+
+To upload/deploy the NFS filer project, run:
+
+    cyclecloud project upload <your_locker_name>
+
+#### Testing the NFS Cluster
+
+Finally, import the `templates/nfs.txt` cluster template using the parameters file we exported earlier and start the cluster:
+
+    cyclecloud import_cluster nfs -f ./templates/nfs.txt -p ./nfs_cluster_params.json
+    cyclecloud start_cluster nfs
+
+
+Note that we're using `import_cluster` rather than `import_template` here since we want to instantiate a cluster with the exported parameters rather than creating a UI form.
+
+You may also import the template to create a cluster creation UI form if desired:
+
+    cyclecloud import_template nfs -f templates/nfs.txt
