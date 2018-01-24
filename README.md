@@ -1,48 +1,19 @@
+# CycleCloud Training Labs
+* Microsoft Specialized Compute (HPC) Team - <mailto:askcyclecloud @ microsoft.com>
+* Initial versions by Ben Watrous, January 2018
 
-So far i’m thinking:
+## Overview
 
-Quick Run through 101/MOOC CC Training
+These labs provide a quick introduction to building and deploying CycleCloud Projects and Clusters.
 
-Cluster Templates:
-- Custom cluster templates in general
-  a) security policies
-  b) multiple nodearrays
-  c) filers, redis, etc.
-- Linking clusters with search
-   a) standalone NFS
-   b) standalone redis
+The labs should be completed in the following order:
 
-Pogo:
-- Configure pogo for use with Projects
+1. filer : Shows how to create a standalone NFS filesystem cluster in CycleCloud.
+2. gromacs : (Depends on filer...) Shows how to create an application using [GROMACS](http://www.gromacs.org/About_Gromacs) as an example.
 
-Projects:
-- Add a custom application project
-  a) project structure and chef vs cluster-init
-  b) how to develop projects
-- Adding capabilies to nodes via projects
-   a) add GPU drivers
-   b) anyone have a project that installs Intel MPI?
+The gromacs lab uses the included `nvidia` project to install the required GPU drivers on the cluster nodes.
 
-Common Tasks:
-- CycleServer Users vs Cluster OS Users
-   a) CycleServer User Roles
-   b) Cluster Sharing
-- Cluster user creation
-   a) create_users cookbook
-   b) Azure AD
+## Pre-Requisites
 
-Plugins:
-- basic REST API plugin
-- command plugin
+These labs assume that you have completed the [CycleCloud Labs](https://github.com/azurebigcompute/Labs/tree/master/CycleCloud%20Labs) lab and have a fully configured CycleCloud instance.
 
-Operations:
-- querying the Datastore (./cycle_server)
-  a) cycle_server execute
-  b) cycle_server history
-- cost alerts
-- custom alerts
-  - Alert when specific service has failures
-- debugging
-   a) converge failures
-   b) unreachable nodes
-   c) recovering from CC failures (maybe)
