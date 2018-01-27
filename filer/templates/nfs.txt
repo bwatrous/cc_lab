@@ -84,21 +84,25 @@ IconUrl = http://download.cyclecomputing.com/logos/nfs-192x192.png
 	Size = 1024
 	SSD = True
 	Mount = nfs
+	Persistent = true
 
 	[[[volume nfs-vol2]]]
 	Size = 1024
 	SSD = True
 	Mount = nfs
+	Persistent = true
 
 	[[[volume nfs-vol3]]]
 	Size = 1024
 	SSD = True
 	Mount = nfs
+	Persistent = true
 
 	[[[volume nfs-vol4]]]
 	Size = 1024
 	SSD = True
 	Mount = nfs
+	Persistent = true
 
 	[[[configuration cyclecloud.mounts.nfs]]]
 	mountpoint = /mnt/exports

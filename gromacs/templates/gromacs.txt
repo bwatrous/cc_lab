@@ -193,6 +193,7 @@ Autoscale = $Autoscale
 
     CoreCount = ${MachineType.GPUCount}
 
+        [[[configuration]]]
         # OPTIONAL: cluster will also use a Consumable Resource to ensure that only GPUCount gpu jobs
         #           run per node.   Without this setting, regular CPU jobs will be allowed to fill the
         #           node's remaining CPUs.  With this setting, the node will ONLY be used for GPU jobs.

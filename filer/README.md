@@ -101,22 +101,6 @@ The NFS filer node requires additional software configuration after launch:
 Finally, the node template provides an `[[[input-endpoint SSH]]]` block that instructs cyclecloud to make port 22 on the node publicly reachable in Azure.
 
 
-### Uploading the project files into the storage account:
-
-Note the name of the storage locker, in the example below it is `azure-storage`:
-```
-$  cyclecloud locker list
-azure-storage (az://cyclecloudapp/cyclecloud)
-```
-
-From the directory where the `project.ini` file exists (the root of the git repo), upload the project:
-```
-$ cyclecloud project upload azure-storage
-Uploading to az://cyclecloudapp/cyclecloud/projects/filer/1.0.0 (100%)
-Sync completed!
-```
-
-
 #### Importing a Cluster Template
 
 The first step when creating a new Cluster Template in CycleCloud is, generally, to use the CycleCloud CLI to import the cluster template and generate the cluster creation form.
@@ -257,9 +241,21 @@ matches=az://cyclecloudapp/cyclecloud
 
 #### Deploying the Filer Project
 
-To upload/deploy the NFS filer project, run:
+To upload/deploy the NFS filer project to your storage locker, run:
 
-    cyclecloud project upload <your_locker_name>
+```
+$ cyclecloud project upload azure-storage
+Uploading to az://cyclecloudapp/cyclecloud/projects/filer/1.0.0 (100%)
+Sync completed!
+```
+
+**NOTE:**
+The name of the storage locker, in the example, is `azure-storage`.  If you forget the name you assigned to the locker, you can list your lockers using the following command:
+```
+$  cyclecloud locker list
+azure-storage (az://cyclecloudapp/cyclecloud)
+```
+
 
 #### Testing the NFS Cluster
 
