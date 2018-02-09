@@ -12,7 +12,7 @@ Order = 10
         Label = Cloud Provider
         ParameterType = Cloud.Provider
 	DefaultValue = azure
-	Hidden=true
+	Hidden = true
 
         [[[parameter Credentials]]]
         Description = The credentials for the cloud provider
@@ -24,10 +24,10 @@ Order = 10
         ParameterType = Cloud.Region
 	DefaultValue = westus2
 
-        [[[parameter keypairLocation]]]
+        [[[parameter KeyPairLocation]]]
         Label = Keypair Path
-        Description = The path to the keypair
-        DefaultValue = ~/.ssh/cyclecloud.pem
+        Description = The path to the private SSH key to use for the `cyclecloud` user on the nodes.
+        DefaultValue = /opt/cycle_server/.ssh/cyclecloud.pem
         Required = True
 
         [[[parameter ImageName]]]
@@ -42,8 +42,26 @@ Order = 10
         ParameterType = Cloud.MachineType
 	DefaultValue = Standard_DS4_v2
 
+        [[[parameter AdditionalClusterInitSpecs]]]
+        Label = Cluster-Init Specs
+        Description = Cluster init specs to apply to the NFS Server host
+        ParameterType = Cloud.ClusterInitSpecs
+
     [[parameters Azure Virtual Network Configuration]]
     Order = 40
+
+        [[[parameter ReturnProxy]]]
+        Label = Return Proxy
+        DefaultValue = true
+        Widget.Plugin = pico.form.BooleanCheckBox
+        Widget.Label = Allow cloud instances to report back their state
+
+        [[[parameter AssignPublicIp]]]
+        Label = Assign Public IP
+        DefaultValue = true
+        Widget.Plugin = pico.form.BooleanCheckBox
+        Widget.Label = Assign a public ip address to the nfs server node?
+
 
         [[[parameter SubnetId]]]
         Label = Subnet ID
@@ -51,7 +69,7 @@ Order = 10
         ParameterType = Azure.Subnet
 
 
-[cluster large_nfs]
+[cluster nfs]
 IconUrl = http://download.cyclecomputing.com/logos/nfs-192x192.png
 
     [[node defaults]]
@@ -62,7 +80,7 @@ IconUrl = http://download.cyclecomputing.com/logos/nfs-192x192.png
     SubnetId = $SubnetId
     Region = $Region
 
-    KeyPairLocation = $keypairLocation
+    KeyPairLocation = $KeyPairLocation
 
 	# Ensure consistent UID and GID between Filer and mounting clusters
 	[[[configuration]]]
@@ -73,7 +91,10 @@ IconUrl = http://download.cyclecomputing.com/logos/nfs-192x192.png
     [[node filer]]
     MachineType = $MachineType
     IsReturnProxy = true
-    
+
+    AdditionalClusterInitSpecs = $AdditionalClusterInitSpecs
+
+
 	[[[configuration]]]
 	run_list = recipe[cganglia::server], recipe[cganglia::client], recipe[cshared::directories], recipe[cuser], recipe[cshared::server]
 	
@@ -106,20 +127,22 @@ IconUrl = http://download.cyclecomputing.com/logos/nfs-192x192.png
 
 	[[[configuration cyclecloud.mounts.nfs]]]
 	mountpoint = /mnt/exports
-	devices = /dev/sdc, /dev/sdd, /dev/sde, /dev/sdf
 	fs_type = ext4
 	raid_level = 0
-	Persistent = true
 
       
 	[[[configuration cyclecloud.exports.nfs_data]]]
 	type = nfs
 	export_path = /mnt/exports/nfs
       
+        # Configure network access to additional Azure external input endpoints
         [[[input-endpoint SSH]]]
-        LocalPort = 22
-        ExternalPort = 22
-	
+        PrivatePort = 22
+        PublicPort = 22
+
         [[[input-endpoint ganglia]]]
         PrivatePort = 8652
         PublicPort = 8652        
+
+        [[[network-interface eth0]]]
+        AssociatePublicIpAddress = $AssignPublicIp

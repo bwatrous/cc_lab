@@ -2,6 +2,15 @@
 ## NVidia Gromacs Benchmark Configuration File ##
 #################################################
 
+[parameters License]
+Order = 1
+
+    [[parameter Gromacs]]
+    HideLabel = true
+    Config.Plugin = pico.widget.HtmlTemplateWidget
+    Config.Template := "<table><tr><td><img src='http://download.cyclecomputing.com/logos/gromacs-192x192.png' width='192' height='192' ></td></tr><tr><td><p>GROMACS is a versatile package to perform molecular dynamics, i.e. simulate the Newtonian equations of motion for systems with hundreds to millions of particles.</p><p>See <a href=\"http://www.gromacs.org/About_Gromacs\" target=\"_blank\">About Gromacs</a> for documentation and license information.</p></td></tr></table>"
+
+
 [parameters General Settings]
 Order = 10
 
@@ -50,11 +59,27 @@ Order = 20
     Description = "Specify the credentials required for access to the node.  The Keypair Path specifies the path on local machines for cyclecloud CLI access."
     Order = 20
 
-        [[[parameter keypairLocation]]]
+        [[[parameter KeyPairLocation]]]
         Label = Keypair Path
-        Description = The path to the keypair
-        DefaultValue = ~/.ssh/cyclecloud.pem
+        Description = The path to the private SSH key to use for the `cyclecloud` user on the nodes.
+        DefaultValue = /opt/cycle_server/.ssh/cyclecloud.pem
         Required = True
+
+        [[[parameter DefaultClusterInitSpecs]]]
+        Label = Default Cluster-Init
+        Description = Cluster init specs to apply to all nodes
+        ParameterType = Cloud.ClusterInitSpecs
+
+        [[[parameter MasterClusterInitSpecs]]]
+        Label = Master Cluster-Init
+        Description = Cluster init specs to apply to the master node
+        ParameterType = Cloud.ClusterInitSpecs
+
+        [[[parameter ExecuteClusterInitSpecs]]]
+        Label = Exec Cluster-Init
+        Description = Cluster init specs to apply to execute nodes
+        ParameterType = Cloud.ClusterInitSpecs
+
 
 [parameters Compute Backend]
 Order = 30
@@ -111,6 +136,21 @@ Order = 30
         Config.IntegerOnly = true
 
 
+    [[parameters Azure Low Priority]]
+    Description = "To use low priority instances check the box, otherwise on-demand instances will be used"
+    Conditions.Excluded := CloudProvider !== "Azure"
+    Order = 30
+
+        [[[parameter azureUseLowPrio]]]
+        Label = Use Low Prio Instances
+        DefaultValue = false
+        Widget.Plugin = pico.form.BooleanCheckBox
+        Widget.Label = Use low priority instances for execute hosts
+
+        [[[parameter azureBatchAccount]]]
+        Label = Azure Batch Account
+        Conditions.Excluded := azureUseLowPrio isnt true        
+
 [parameters Networking]
 Order = 40
     
@@ -123,6 +163,11 @@ Order = 40
         Widget.Plugin = pico.form.BooleanCheckBox
         Widget.Label = Allow cloud instances to report back their state
 
+        [[[parameter MasterPublicIp]]]
+        Label = Master has Public IP
+        DefaultValue = true
+        Widget.Plugin = pico.form.BooleanCheckBox
+        Widget.Label = Assign a public ip address to the master node
     
     [[parameters Azure Virtual Network Configuration]]
     Order = 40
@@ -152,7 +197,10 @@ Autoscale = $Autoscale
     SubnetId = $SubnetId
     Region = $Region
 
-    KeyPairLocation = $keypairLocation
+    KeyPairLocation = $KeyPairLocation
+
+    AdditionalClusterInitSpecs = $DefaultClusterInitSpecs
+
 
         [[[configuration]]]
         # You can specify Chef attributes using dot notation if needed. For example, you
@@ -179,26 +227,36 @@ Autoscale = $Autoscale
         mountpoint = $MountPoint
         cluster_name = $FilesystemClusterName
 
+        [[[network-interface eth0]]]
+        AssociatePublicIpAddress = false
+
         [[[cluster-init nvidia:driver:1.1.0]]]
 
 
     [[node master]]
     IsReturnProxy = $ReturnProxy
 
+    AdditionalClusterInitSpecs = $MasterClusterInitSpecs
 
+        [[[configuration]]]
+	run_list = role[sge_master_role]
+	
         [[[configuration nvidia]]]
         # IMPORTANT: cuda profile generation is for driver-only nodes (it will fail on the cuda host)
         cuda.disable_profile = true
 
 
-        # Configure Azure external input endpoints (for example SSH)
+        # Configure network access to additional Azure external input endpoints
         [[[input-endpoint SSH]]]
         PrivatePort = 22
         PublicPort = 22
 
         [[[input-endpoint ganglia]]]
         PrivatePort = 8652
-        PublicPort = 8652        
+        PublicPort = 8652
+
+        [[[network-interface eth0]]]
+        AssociatePublicIpAddress = $MasterPublicIp
 
         [[[cluster-init nvidia:cuda:1.1.0]]]
         [[[cluster-init nvidia:sge:1.1.0]]]
@@ -216,14 +274,19 @@ Autoscale = $Autoscale
 
     CoreCount = ${MachineType.GPUCount}
 
+    # Azure Low Priority Instances?
+    BatchAccount = $azureBatchAccount
+    Interruptible = $azureUseLowPrio
+    
+    AdditionalClusterInitSpecs = $ExecuteClusterInitSpecs
+    
+        [[[configuration]]]
+        run_list = role[sge_execute_role]
+	
         # OPTIONAL: cluster will also use a Consumable Resource to ensure that only GPUCount gpu jobs
         #           run per node.   Without this setting, regular CPU jobs will be allowed to fill the
         #           node's remaining CPUs.  With this setting, the node will ONLY be used for GPU jobs.
         gridengine.slots = ${MachineType.GPUCount}
-
-        [[[input-endpoint SSH]]]
-        PrivatePort = 22
-        PublicPort = 55100
 
         [[[cluster-init nvidia:sge:1.1.0]]]
         [[[cluster-init gromacs:default:1.0.0]]]
