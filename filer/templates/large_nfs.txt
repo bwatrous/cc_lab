@@ -71,6 +71,7 @@ Order = 10
 
 [cluster nfs]
 IconUrl = http://download.cyclecomputing.com/logos/nfs-192x192.png
+Category = File Systems
 
     [[node defaults]]
 
